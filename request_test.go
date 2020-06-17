@@ -1,8 +1,6 @@
 package gortsplib
 
 import (
-	"bufio"
-	"bytes"
 	"net/url"
 	"testing"
 
@@ -117,22 +115,97 @@ var casesRequest = []struct {
 func TestRequestRead(t *testing.T) {
 	for _, c := range casesRequest {
 		t.Run(c.name, func(t *testing.T) {
-			req, err := readRequest(bufio.NewReader(bytes.NewBuffer(c.byts)))
+			req, err := readRequestFromBytes(c.byts)
 			require.NoError(t, err)
 			require.Equal(t, c.req, req)
 		})
 	}
 }
 
+func TestRequestReadBadEnd(t *testing.T) {
+	msg := []byte("GET_PARAMETER rtsp://example.com/media.mp4 RTSP/1.0\r\n" +
+		"CSeq: 9\r\n" +
+		"Content-Length: 24\r\n" +
+		"Content-Type: text/parameters\r\n" +
+		"Session: 12345678\r\n")
+	r, err := readRequestFromBytes(msg)
+	require.Error(t, err)
+	require.Equal(t, "Could not find end of reqest to parse", err.Error())
+	var r2 *Request = nil
+	require.Equal(t, r2, r)
+}
+
+func TestRequestReadBadH1(t *testing.T) {
+	msg := []byte("GET_PARAMETER rtsp://example.com/media.mp4\r\n" +
+		"CSeq: 9\r\n" +
+		"Content-Length: 24\r\n" +
+		"Content-Type: text/parameters\r\n" +
+		"Session: 12345678\r\n\r\n")
+	r, err := readRequestFromBytes(msg)
+	require.Error(t, err)
+	require.Equal(t, "unable to parse Request Header", err.Error())
+	var r2 *Request = nil
+	require.Equal(t, r2, r)
+}
+
+func TestRequestReadBadURL(t *testing.T) {
+	msg := []byte("GET_PARAMETER   RTSP/1.0\r\n" +
+		"CSeq: 9\r\n" +
+		"Content-Length: 24\r\n" +
+		"Content-Type: text/parameters\r\n" +
+		"Session: 12345678\r\n\r\n")
+	msg[14] = 0x08
+
+	r, err := readRequestFromBytes(msg)
+	require.Error(t, err)
+	require.Equal(t, "unable to parse url '\b'", err.Error())
+	var r2 *Request = nil
+	require.Equal(t, r2, r)
+}
+
+func TestRequestReadBadScheme(t *testing.T) {
+	msg := []byte("GET_PARAMETER https://example.com/media.mp4 RTSP/1.0\r\n" +
+		"CSeq: 9\r\n" +
+		"Content-Length: 24\r\n" +
+		"Content-Type: text/parameters\r\n" +
+		"Session: 12345678\r\n\r\n")
+	r, err := readRequestFromBytes(msg)
+	require.Error(t, err)
+	require.Equal(t, "invalid url scheme 'https'", err.Error())
+	var r2 *Request = nil
+	require.Equal(t, r2, r)
+}
+
+func TestRequestReadBadProto(t *testing.T) {
+	msg := []byte("GET_PARAMETER rtsp://example.com/media.mp4 RTSP/1.2\r\n" +
+		"CSeq: 9\r\n" +
+		"Content-Length: 24\r\n" +
+		"Content-Type: text/parameters\r\n" +
+		"Session: 12345678\r\n\r\n")
+	r, err := readRequestFromBytes(msg)
+	require.Error(t, err)
+	require.Equal(t, "expected 'RTSP/1.0', got 'RTSP/1.2'", err.Error())
+	var r2 *Request = nil
+	require.Equal(t, r2, r)
+}
+
+func TestRequestReadContentLength(t *testing.T) {
+	msg := []byte("GET_PARAMETER rtsp://example.com/media.mp4 RTSP/1.0\r\n" +
+		"CSeq: 9\r\n" +
+		"Content-Length: 24\r\n" +
+		"Content-Type: text/parameters\r\n" +
+		"Session: 12345678\r\n\r\n")
+	r, err := readRequestFromBytes(msg)
+	require.Error(t, err)
+	require.Equal(t, "Not enough bytes to get all content", err.Error())
+	var r2 *Request = nil
+	require.Equal(t, r2, r)
+}
+
 func TestRequestWrite(t *testing.T) {
 	for _, c := range casesRequest {
 		t.Run(c.name, func(t *testing.T) {
-			var buf bytes.Buffer
-			bw := bufio.NewWriter(&buf)
-			err := c.req.write(bw)
-			require.NoError(t, err)
-			// do NOT call flush(), write() must have already done it
-			require.Equal(t, c.byts, buf.Bytes())
+			require.Equal(t, c.byts, []byte(c.req.String()))
 		})
 	}
 }

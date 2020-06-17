@@ -1,7 +1,6 @@
 package gortsplib
 
 import (
-	"bufio"
 	"bytes"
 	"testing"
 
@@ -40,7 +39,7 @@ var casesHeader = []struct {
 func TestHeaderRead(t *testing.T) {
 	for _, c := range casesHeader {
 		t.Run(c.name, func(t *testing.T) {
-			req, err := readHeader(bufio.NewReader(bytes.NewBuffer(c.byts)))
+			req, err := readHeaderFromString(string(c.byts))
 			require.NoError(t, err)
 			require.Equal(t, c.header, req)
 		})
@@ -50,11 +49,9 @@ func TestHeaderRead(t *testing.T) {
 func TestHeaderWrite(t *testing.T) {
 	for _, c := range casesHeader {
 		t.Run(c.name, func(t *testing.T) {
-			var buf bytes.Buffer
-			bw := bufio.NewWriter(&buf)
-			err := c.header.write(bw)
-			require.NoError(t, err)
-			bw.Flush()
+			buf := &bytes.Buffer{}
+			buf.Write([]byte(c.header.String()))
+			buf.Write([]byte("\r\n"))
 			require.Equal(t, c.byts, buf.Bytes())
 		})
 	}
@@ -90,7 +87,7 @@ var casesHeaderNormalization = []struct {
 func TestHeaderNormalization(t *testing.T) {
 	for _, c := range casesHeaderNormalization {
 		t.Run(c.name, func(t *testing.T) {
-			req, err := readHeader(bufio.NewReader(bytes.NewBuffer(c.byts)))
+			req, err := readHeaderFromString(string(c.byts))
 			require.NoError(t, err)
 			require.Equal(t, c.header, req)
 		})

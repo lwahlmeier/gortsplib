@@ -1,8 +1,6 @@
 package gortsplib
 
 import (
-	"bufio"
-	"bytes"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -111,7 +109,7 @@ var casesResponse = []struct {
 func TestResponseRead(t *testing.T) {
 	for _, c := range casesResponse {
 		t.Run(c.name, func(t *testing.T) {
-			res, err := readResponse(bufio.NewReader(bytes.NewBuffer(c.byts)))
+			res, err := readResponseFromBytes(c.byts)
 			require.NoError(t, err)
 			require.Equal(t, c.res, res)
 		})
@@ -121,12 +119,7 @@ func TestResponseRead(t *testing.T) {
 func TestResponseWrite(t *testing.T) {
 	for _, c := range casesResponse {
 		t.Run(c.name, func(t *testing.T) {
-			var buf bytes.Buffer
-			bw := bufio.NewWriter(&buf)
-			err := c.res.write(bw)
-			require.NoError(t, err)
-			// do NOT call flush(), write() must have already done it
-			require.Equal(t, c.byts, buf.Bytes())
+			require.Equal(t, c.byts, []byte(c.res.String()))
 		})
 	}
 }
@@ -153,9 +146,5 @@ func TestResponseWriteStatusAutofill(t *testing.T) {
 		"\r\n",
 	)
 
-	var buf bytes.Buffer
-	bw := bufio.NewWriter(&buf)
-	err := res.write(bw)
-	require.NoError(t, err)
-	require.Equal(t, byts, buf.Bytes())
+	require.Equal(t, byts, []byte(res.String()))
 }
